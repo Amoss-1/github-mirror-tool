@@ -1,51 +1,53 @@
-# GitHub 镜像克隆工具
+# GitHub 镜像工具集
 
-国内访问 GitHub 不稳定？这个工具帮你自动走镜像克隆仓库。
+公司内网访问 GitHub 不稳定？这组工具帮你解决 clone 和 push 的问题。
 
-## 功能
+## 工具列表
 
-- 自动尝试多个国内镜像源
-- 镜像全失败才回退直连
-- 支持短格式输入（`用户名/仓库名`）
-- 只影响 clone 操作，不影响你的 push/pull/其他网络
+| 工具 | 功能 | 原理 |
+|------|------|------|
+| `ghclone` | 镜像克隆仓库 | 走国内 CDN 镜像下载 |
+| `ghpush` | API 方式推送文件 | 通过 gh API 上传，绕过 git push |
+
+## 适用场景
+
+| 你的问题 | 用哪个 |
+|----------|--------|
+| `git clone` 超时 | `ghclone` |
+| `git push` 连不上 | `ghpush` |
+| 浏览器能上 GitHub 但命令行不行 | `ghclone` + `ghpush` |
+| 完全上不了 GitHub | 需要代理或 VPN |
 
 ## 安装
 
-### 方式一：一键安装（推荐）
+### 前提条件
+
+- Git Bash（Windows）或 bash（Mac/Linux）
+- `ghpush` 需要 [GitHub CLI](https://cli.github.com) 并登录
+
+### 方式一：手动安装（推荐）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/github-mirror-tool/main/install.sh | bash
+# 下载脚本
+# 把 ghclone 和 ghpush 放到 ~/bin/ 目录
+mkdir -p ~/bin
+cp ghclone ghpush ~/bin/
+chmod +x ~/bin/ghclone ~/bin/ghpush
+
+# 确保 ~/bin 在 PATH 中
+echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
 ```
 
-或下载后运行：
+### 方式二：运行安装脚本
 
 ```bash
 bash install.sh
 ```
 
-### 方式二：手动安装
-
-1. 下载 `ghclone` 脚本
-2. 放到你的 PATH 目录下（如 `~/bin/` 或 `/usr/local/bin/`）
-3. 添加执行权限：`chmod +x ghclone`
-
-### 配置 hosts（可选，推荐）
-
-在 `C:\Windows\System32\drivers\etc\hosts`（Windows）或 `/etc/hosts`（Mac/Linux）末尾添加：
-
-```
-# GitHub 加速
-20.205.243.166    github.com
-20.205.243.165    codeload.github.com
-20.205.243.168    api.github.com
-185.199.108.215   github.githubassets.com
-185.199.108.133   raw.githubusercontent.com
-140.82.113.3      gist.github.com
-```
-
-> 注意：hosts 中的 IP 可能过期，如果连不上请查询最新 IP 更新。
-
 ## 使用
+
+### ghclone — 克隆仓库
 
 ```bash
 # 短格式（推荐）
@@ -58,40 +60,54 @@ ghclone https://github.com/GEO-optimizer/GEO.git
 ghclone
 ```
 
+原理：依次尝试 `ghproxy.com` → `mirror.ghproxy.com` → `ghproxy.net`，全失败才直连。
+
+### ghpush — 推送文件
+
+```bash
+# 上传单个文件到当前仓库
+ghpush README.md
+
+# 上传整个目录
+ghpush .
+
+# 上传到指定仓库
+ghpush src/ Amoss-1/my-repo
+
+# 带自定义提交信息
+ghpush main.py user/repo 'feat: 新功能'
+```
+
+原理：通过 GitHub API 上传文件，不走 git push 通道。
+
+限制：
+- 单文件不能超过 1MB
+- 只能上传文本文件
+- 需要 gh CLI 已登录
+
 ## 工作原理
 
 ```
-ghclone GEO-optimizer/GEO
-  ↓
-自动拼接: https://github.com/GEO-optimizer/GEO.git
-  ↓
-依次尝试镜像:
-  1. https://ghproxy.com/https://github.com/...
-  2. https://mirror.ghproxy.com/https://github.com/...
-  3. https://ghproxy.net/https://github.com/...
-  ↓
-全部失败 → 回退直连 github.com
+git clone / git push 连不上 GitHub？
+  │
+  ├─ clone → ghclone（国内镜像下载）
+  │
+  └─ push  → ghpush（API 上传）
 ```
-
-## 安全性
-
-| 关注点 | 说明 |
-|--------|------|
-| 影响范围 | 只影响 clone 操作，push/pull 走直连 |
-| 账号安全 | 不涉及你的 GitHub 账号密码 |
-| 私有仓库 | 私有仓库请直接用 `git clone`，不走镜像 |
-| hosts 修改 | 只影响 GitHub 域名的 DNS 解析，不影响其他网站 |
 
 ## 常见问题
 
-**Q: 克隆失败怎么办？**
-A: 镜像站有时会失效，等几分钟重试。也可以直接 `git clone` 试试直连。
+**Q: ghclone 克隆失败？**
+A: 镜像站有时会失效，等几分钟重试。私有仓库不支持镜像克隆。
 
-**Q: 能用在私有仓库吗？**
-A: 不建议。私有仓库需要认证，镜像站无法处理。请用 `git clone` 直连。
+**Q: ghpush 上传失败？**
+A: 确认 `gh auth status` 已登录。单文件超过 1MB 会被跳过。
+
+**Q: 这个工具安全吗？**
+A: ghclone 只下载公开仓库，不涉及账号。ghpush 通过官方 gh CLI 操作，走 HTTPS 加密通道。
 
 **Q: Windows 能用吗？**
-A: 需要 Git Bash 或 WSL。在 Git Bash 中使用。
+A: 在 Git Bash 中使用。需要先安装 Git 和 GitHub CLI。
 
 ## License
 
