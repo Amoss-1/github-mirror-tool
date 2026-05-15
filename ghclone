@@ -1,0 +1,47 @@
+#!/bin/bash
+# GitHub 镜像克隆工具
+# https://github.com/YOUR_USERNAME/github-mirror-tool
+
+if [ -z "$1" ]; then
+  echo "=== GitHub 镜像克隆工具 ==="
+  echo ""
+  echo "用法: ghclone 仓库地址"
+  echo ""
+  echo "示例:"
+  echo "  ghclone GEO-optimizer/GEO"
+  echo "  ghclone https://github.com/GEO-optimizer/GEO.git"
+  exit 0
+fi
+
+url="$1"
+
+# 短格式补全为完整地址
+if [[ ! "$url" =~ ^https?:// ]]; then
+  url="https://github.com/${url}.git"
+fi
+
+# 去掉已有镜像前缀，避免重复
+url=$(echo "$url" | sed 's|https://ghproxy.com/||' | sed 's|https://mirror.ghproxy.com/||')
+
+echo "正在克隆: $url"
+
+# 国内镜像源列表（按优先级排序）
+mirrors=(
+  "https://ghproxy.com/"
+  "https://mirror.ghproxy.com/"
+  "https://ghproxy.net/"
+)
+
+for mirror in "${mirrors[@]}"; do
+  echo "尝试: ${mirror}${url}"
+  if git clone "${mirror}${url}"; then
+    echo ""
+    echo "✓ 克隆成功！"
+    exit 0
+  fi
+done
+
+# 所有镜像失败，回退直连
+echo ""
+echo "镜像均失败，尝试直连..."
+git clone "$url"
